@@ -2,7 +2,7 @@
 
 Save and restore multi-tab terminal layouts in [Ghostty](https://ghostty.org) — the missing workspace/arrangement feature.
 
-Ghostty added AppleScript support in v1.3 (March 2025), but has no built-in way to save and restore tab layouts ([discussion #2353](https://github.com/ghostty-org/ghostty/discussions/2353)). This script reads a YAML config and drives Ghostty's AppleScript API to create tabs, set titles, configure splits, and run startup commands.
+Ghostty added AppleScript support in v1.3 (March 2025), but has no built-in way to save and restore tab layouts. This script reads a YAML config and drives Ghostty's AppleScript API to create tabs, set titles, configure splits, and run startup commands.
 
 ## Requirements
 
@@ -20,12 +20,12 @@ cd ghostty-workspace
 pip install pyyaml
 ```
 
-Copy `example.yaml` to `~/ghostty-workspace.yaml` and edit it for your setup.
+Copy `example.yaml` to `~/ghostty-workspace.yaml` (or into a project directory) and edit it for your setup. The script checks the current directory first, then `~/`.
 
 ## Usage
 
 ```bash
-# Launch workspace (reads ~/ghostty-workspace.yaml by default)
+# Launch workspace (checks ./ghostty-workspace.yaml then ~/ghostty-workspace.yaml)
 python3 ghostty-workspace.py
 
 # Use a different config
@@ -87,7 +87,7 @@ See [`example.yaml`](example.yaml) for a fully commented reference. Summary:
 python3 test_ghostty_workspace.py
 ```
 
-78 tests covering config parsing, payload generation, AppleScript invariants, and CLI behavior. No macOS, Ghostty, or osascript required to run them.
+81 tests covering config parsing, payload generation, AppleScript invariants, and CLI behavior. No macOS, Ghostty, or osascript required to run them.
 
 ## Known Caveats
 
