@@ -1,0 +1,87 @@
+# ghostty-workspace.yaml — Ghostty workspace launcher configuration
+#
+# Copy this file to ~/ghostty-workspace.yaml (the default path) or pass
+# a custom path with: ghostty-workspace.py -c /path/to/config.yaml
+#
+# Full reference: every option is shown below with comments.
+
+# ---------------------------------------------------------------------------
+# window — global settings that apply to the whole workspace
+# ---------------------------------------------------------------------------
+window:
+  # shell (required at window or tab level)
+  # Absolute path to the shell used for new tabs and the initial window.
+  # Each tab can override this with its own 'shell' key.
+  # There is no default — you must set this here or on every tab.
+  shell: /opt/homebrew/bin/fish
+
+  # tab_position: prepend | append (default: prepend)
+  # "prepend" inserts workspace tabs at the front of the tab bar (before
+  # any existing tabs) and reorders them to match config order.
+  # "append" adds tabs at the end, skipping the reorder loop entirely.
+  tab_position: prepend
+
+  # reuse_existing_tabs (default: true)
+  # When true, if a tab with the same title already exists in the window,
+  # the launcher reuses it instead of creating a duplicate. Individual
+  # tabs can override this with 'reuse_if_exists'.
+  reuse_existing_tabs: true
+
+  # always_new (default: false)
+  # Always create a new Ghostty window instead of reusing the front one.
+  # Equivalent to the --force-new-window CLI flag.
+  always_new: false
+
+# ---------------------------------------------------------------------------
+# tabs — ordered list of tabs to create
+# ---------------------------------------------------------------------------
+tabs:
+  # --- AI coding assistant with an editor split --------------------------
+  - key: code
+    title: "Code"
+    working_dir: ~/projects/myapp
+    command: "claude -c"
+    focus: true                  # This tab gets focus after launch.
+    split:
+      enabled: true
+      direction: right           # right | left | up | down
+      ratio: "70/30"             # Also accepts "0.7", "70", or "70/30"
+      second_pane_command: nvim
+      second_pane_working_dir: ~/projects/myapp
+
+  # --- Dev server + test watcher -----------------------------------------
+  - key: server
+    title: "Server"
+    working_dir: ~/projects/myapp
+    command: "npm run dev"
+    split:
+      enabled: true
+      direction: right
+      ratio: "60/40"
+      second_pane_command: "npm run test -- --watch"
+
+  # --- Chatbot project using a different shell ---------------------------
+  - key: chatbot
+    title: "Chatbot"
+    working_dir: ~/projects/chatbot
+    shell: /bin/bash             # Overrides window.shell for this tab only.
+    command: "aider"
+
+  # --- Remote pairing session --------------------------------------------
+  - key: remote
+    title: "Remote"
+    command: "ssh devbox '/opt/homebrew/bin/tmux attach'"
+
+  # --- Scratch terminal that never reuses an existing tab ----------------
+  - key: scratch
+    title: "Scratch"
+    reuse_if_exists: false       # Always create a fresh tab, even if one
+                                 # with this title already exists.
+
+  # --- Disabled tab: stays in config but is skipped ----------------------
+  - key: legacy
+    title: "Legacy DB"
+    working_dir: ~/projects/legacy
+    command: "psql legacy_dev"
+    enabled: false               # Set to true to re-enable without
+                                 # removing the entry from your config.
