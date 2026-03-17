@@ -2,7 +2,7 @@
 
 Save and restore multi-tab terminal layouts in [Ghostty](https://ghostty.org) — the missing workspace/arrangement feature.
 
-Ghostty added AppleScript support in v1.3 (March 2025), but has no built-in way to save and restore tab layouts. This script reads a YAML config and drives Ghostty's AppleScript API to create tabs, set titles, configure splits, and run startup commands.
+Ghostty added AppleScript support in v1.3 (March 2026), but has no built-in way to save and restore tab layouts. This script reads a YAML config and drives Ghostty's AppleScript API to create tabs, set titles, configure splits, and run startup commands.
 
 ## Requirements
 
