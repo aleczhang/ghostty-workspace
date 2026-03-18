@@ -61,7 +61,7 @@ class WindowConfig:
 @dataclass
 class TabConfig:
     key: str
-    title: str
+    title: Optional[str]
     working_dir: Optional[str]
     command: Optional[str]
     shell: str
@@ -209,12 +209,14 @@ def parse_tabs(data: Dict[str, Any], window: WindowConfig) -> List[TabConfig]:
             die(f"duplicate tab key: {key!r}")
         seen_keys.add(key)
 
-        title = str(item.get("title", "")).strip()
-        if not title:
-            die(f"tab {key!r} is missing 'title'")
-        if title in titles:
-            die(f"duplicate tab title: {title!r}")
-        titles.add(title)
+        title_raw = item.get("title")
+        title: Optional[str] = None
+        if title_raw is not None:
+            title = str(title_raw).strip() or None
+        if title is not None:
+            if title in titles:
+                die(f"duplicate tab title: {title!r}")
+            titles.add(title)
 
         working_dir = item.get("working_dir")
         if working_dir is not None:
@@ -239,7 +241,9 @@ def parse_tabs(data: Dict[str, Any], window: WindowConfig) -> List[TabConfig]:
         focus = bool(item.get("focus", False))
 
         reuse_raw = item.get("reuse_if_exists")
-        if reuse_raw is not None:
+        if title is None:
+            reuse_if_exists = False
+        elif reuse_raw is not None:
             reuse_if_exists = bool(reuse_raw)
         else:
             reuse_if_exists = window.reuse_existing_tabs
@@ -287,7 +291,7 @@ def build_payload(
         payload_tabs.append(
             {
                 "key": t.key,
-                "title": t.title,
+                "title": t.title or "",
                 "workingDir": t.working_dir or "",
                 "command": t.command or "",
                 "shell": t.shell,
@@ -418,8 +422,8 @@ on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, split
         delay 0.15
     end tell
 
-    -- Set the tab title via the prompt dialog
-    my setSelectedTabTitle(titleText)
+    -- Set the tab title via the prompt dialog (skip if no title configured)
+    if titleText is not "" then my setSelectedTabTitle(titleText)
 
     -- Handle split after title is set; terminal focus is now stable
     if (enabled of splitRec) then
@@ -591,12 +595,27 @@ def run_osascript(payload: Dict[str, Any], *, verbose: bool) -> int:
     return proc.returncode
 
 
+CONFIG_NAME = "ghostty-workspace.yaml"
+
+
+def resolve_config() -> Path:
+    """Find config: ./ghostty-workspace.yaml first, then ~/ghostty-workspace.yaml."""
+    cwd = Path.cwd() / CONFIG_NAME
+    if cwd.is_file():
+        return cwd
+    home = Path.home() / CONFIG_NAME
+    if home.is_file():
+        return home
+    # Default to CWD path so the error message is useful.
+    return cwd
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Open and maintain a Ghostty workspace from YAML.")
     p.add_argument(
         "-c", "--config",
-        default="~/ghostty-workspace.yaml",
-        help="Path to YAML config. Default: %(default)s",
+        default=None,
+        help=f"Path to YAML config. Default: ./{CONFIG_NAME} then ~/{CONFIG_NAME}",
     )
     p.add_argument(
         "--tabs",
@@ -629,7 +648,10 @@ def main() -> int:
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    config_path = Path(expand_path(args.config))
+    if args.config is not None:
+        config_path = Path(expand_path(args.config))
+    else:
+        config_path = resolve_config()
     data = load_yaml(config_path)
     window_config = parse_window(data)
     tabs = parse_tabs(data, window_config)
@@ -652,7 +674,8 @@ def main() -> int:
         for t in selected:
             split_info = f"  split={t.split.direction} {t.split.ratio}" if t.split.enabled else ""
             focus_marker = " [focus]" if t.focus else ""
-            print(f"  tab {t.key!r}: {t.title!r}  cmd={t.command or '(none)'}{split_info}{focus_marker}")
+            title_display = repr(t.title) if t.title else "(untitled)"
+            print(f"  tab {t.key!r}: {title_display}  cmd={t.command or '(none)'}{split_info}{focus_marker}")
         return 0
 
     if not tabs:

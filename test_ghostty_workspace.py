@@ -247,10 +247,34 @@ class TestParseTabs(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self._parse(yaml)
 
-    def test_missing_title_raises(self):
+    def test_missing_title_allowed(self):
         yaml = "window:\n  shell: /bin/sh\ntabs:\n  - key: dev\n"
-        with self.assertRaises(SystemExit):
-            self._parse(yaml)
+        tabs = self._parse(yaml)
+        self.assertEqual(len(tabs), 1)
+        self.assertIsNone(tabs[0].title)
+
+    def test_no_title_forces_reuse_false(self):
+        yaml = textwrap.dedent("""
+            window:
+              shell: /bin/sh
+              reuse_existing_tabs: true
+            tabs:
+              - key: dev
+        """)
+        tabs = self._parse(yaml)
+        self.assertFalse(tabs[0].reuse_if_exists)
+
+    def test_no_title_skips_title_in_applescript(self):
+        script = gw.APPLE_SCRIPT
+        self.assertIn('if titleText is not "" then my setSelectedTabTitle', script)
+
+    def test_no_title_payload_has_empty_string(self):
+        yaml = "tabs:\n  - key: dev\n"
+        tabs = make_tabs(yaml)
+        payload = gw.build_payload(
+            tabs, only_keys=None, force_new_window=False, default_shell="/bin/sh",
+        )
+        self.assertEqual(payload["tabs"][0]["title"], "")
 
     def test_empty_tabs_raises(self):
         with self.assertRaises(SystemExit):
@@ -854,6 +878,56 @@ class TestRunOsascript(unittest.TestCase):
     def test_success_returns_zero(self):
         result, _ = self._run(0, "", "")
         self.assertEqual(result, 0)
+
+
+# ---------------------------------------------------------------------------
+# resolve_config — CWD-first lookup
+# ---------------------------------------------------------------------------
+
+class TestResolveConfig(unittest.TestCase):
+
+    def test_cwd_file_preferred(self):
+        import tempfile, os
+        d = tempfile.mkdtemp()
+        cwd_cfg = Path(d) / gw.CONFIG_NAME
+        cwd_cfg.write_text("tabs:\n  - key: a\n    title: A\n")
+        try:
+            with patch.object(Path, "cwd", return_value=Path(d)):
+                result = gw.resolve_config()
+            self.assertEqual(result, cwd_cfg)
+        finally:
+            os.unlink(cwd_cfg)
+            os.rmdir(d)
+
+    def test_falls_back_to_home(self):
+        import tempfile, os
+        # Use an empty tmpdir as CWD (no config there)
+        empty = tempfile.mkdtemp()
+        home = tempfile.mkdtemp()
+        home_cfg = Path(home) / gw.CONFIG_NAME
+        home_cfg.write_text("tabs:\n  - key: a\n    title: A\n")
+        try:
+            with patch.object(Path, "cwd", return_value=Path(empty)), \
+                 patch.object(Path, "home", return_value=Path(home)):
+                result = gw.resolve_config()
+            self.assertEqual(result, home_cfg)
+        finally:
+            os.unlink(home_cfg)
+            os.rmdir(home)
+            os.rmdir(empty)
+
+    def test_returns_cwd_path_when_neither_exists(self):
+        import tempfile, os
+        empty = tempfile.mkdtemp()
+        empty2 = tempfile.mkdtemp()
+        try:
+            with patch.object(Path, "cwd", return_value=Path(empty)), \
+                 patch.object(Path, "home", return_value=Path(empty2)):
+                result = gw.resolve_config()
+            self.assertEqual(result, Path(empty) / gw.CONFIG_NAME)
+        finally:
+            os.rmdir(empty)
+            os.rmdir(empty2)
 
 
 # ---------------------------------------------------------------------------

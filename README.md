@@ -62,7 +62,7 @@ See [`example.yaml`](example.yaml) for a fully commented reference. Summary:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `key` | string | *(required)* | Unique identifier for `--tabs` filtering. |
-| `title` | string | *(required)* | Tab title (set via Ghostty's prompt dialog). |
+| `title` | string | | Tab title (set via Ghostty's prompt dialog). If omitted, tab keeps Ghostty's default title and `reuse_if_exists` is implicitly `false`. |
 | `working_dir` | string | | Starting directory. Supports `~` and `$ENV_VARS`. |
 | `command` | string | | Command to run on tab creation. |
 | `shell` | string | `window.shell` | Per-tab shell override. |

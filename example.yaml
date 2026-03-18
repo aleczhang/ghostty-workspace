@@ -1,7 +1,8 @@
 # ghostty-workspace.yaml — Ghostty workspace launcher configuration
 #
-# Copy this file to ~/ghostty-workspace.yaml (the default path) or pass
-# a custom path with: ghostty-workspace.py -c /path/to/config.yaml
+# Copy this file to ./ghostty-workspace.yaml (checked first) or
+# ~/ghostty-workspace.yaml (fallback), or pass a custom path with:
+#   ghostty-workspace.py -c /path/to/config.yaml
 #
 # Full reference: every option is shown below with comments.
 

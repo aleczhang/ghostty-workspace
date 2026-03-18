@@ -37,7 +37,7 @@ Key design decisions:
 
 ## Config Format (ghostty-workspace.yaml)
 
-Top-level keys: `window` (settings like `reuse_front_window`) and `tabs` (list). Each tab requires `key` (unique) and `title` (unique). Optional: `working_dir`, `command`, `shell`, `split` (with `direction`, `ratio`, `second_pane_command`), `focus`, `reuse_if_exists`.
+Top-level keys: `window` (settings like `shell`, `tab_position`, `reuse_existing_tabs`, `always_new`) and `tabs` (list). Each tab requires `key` (unique). Optional: `title` (unique, triggers Accessibility-based rename), `working_dir`, `command`, `shell`, `split` (with `direction`, `ratio`, `second_pane_command`), `focus`, `reuse_if_exists`, `enabled`.
 
 ## Dependencies
 
