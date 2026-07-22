@@ -62,7 +62,6 @@ name: payments
 
 window:
   target: new                   # new | front
-  shell: /bin/zsh
   tab_position: append          # prepend | append
   reuse_existing_tabs: false
 
@@ -76,6 +75,8 @@ tabs:
 
 `window.target` defaults to `new`: it configures Ghostty’s initial terminal from the first selected YAML tab, so a new-window launch does not intentionally add a spare bootstrap tab. `front` uses the currently frontmost Ghostty window.
 
+`gws` leaves each surface command unset, so new tabs and split panes inherit Ghostty’s configured shell and its normal exit behavior. Configure your shell in Ghostty; `window.shell` and `tabs[].shell` are not supported.
+
 ## YAML schema
 
 ### `window`
@@ -83,7 +84,6 @@ tabs:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `target` | `new` \| `front` | `new` | Launch in an isolated window or reuse the front Ghostty window. |
-| `shell` | string | *(none)* | **Required** at window or tab level. Absolute path to shell. |
 | `tab_position` | `prepend` \| `append` | `prepend` | Where workspace tabs are inserted in the tab bar. |
 | `reuse_existing_tabs` | bool | `true` | Global default for reusing tabs that match by title. |
 
@@ -94,8 +94,7 @@ tabs:
 | `key` | string | *(required)* | Unique identifier for `--tabs` filtering. |
 | `title` | string | | Tab title (set via Ghostty's prompt dialog). If omitted, the tab keeps Ghostty's default title and `reuse_if_exists` is implicitly `false`. |
 | `working_dir` | string | | Starting directory. Supports `~` and `$ENV_VARS`. |
-| `command` | string | | Command to run on tab creation. |
-| `shell` | string | `window.shell` | Per-tab shell override. |
+| `command` | string | | Command to run on tab creation in Ghostty’s configured shell. |
 | `focus` | bool | `false` | Give this tab focus after launch. |
 | `reuse_if_exists` | bool | `window.reuse_existing_tabs` | Override the global reuse setting. A reused tab is focus-only: it does not rerun commands, alter splits, or move in the tab bar. |
 | `enabled` | bool | `true` | Set to `false` to skip without removing from config. |

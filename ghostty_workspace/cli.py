@@ -17,7 +17,6 @@ from .registry import WorkspaceError, WorkspaceRegistry
 
 
 def _workspace_template(name: str) -> str:
-    shell = os.environ.get("SHELL", "/bin/zsh")
     return f'''# Created by gws new {name}
 version: 2
 name: {name}
@@ -25,7 +24,6 @@ name: {name}
 window:
   # new creates an isolated Ghostty window; front reuses the front window.
   target: new
-  shell: {shell}
   tab_position: append
   reuse_existing_tabs: false
 

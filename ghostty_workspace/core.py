@@ -9,7 +9,7 @@ Reads a YAML config and uses embedded AppleScript via osascript to:
 - optionally create a split in a tab
 - resize a right split to an approximate ratio
 - set the visible tab title through Ghostty's prompt_tab_title action
-- run commands in a configured shell
+- run commands in Ghostty's configured shell
 
 Requirements:
 - macOS
@@ -52,7 +52,6 @@ class SplitConfig:
 
 @dataclass
 class WindowConfig:
-    shell: Optional[str] = None
     tab_position: str = "prepend"
     reuse_existing_tabs: bool = True
     target: str = "new"
@@ -64,7 +63,6 @@ class TabConfig:
     title: Optional[str]
     working_dir: Optional[str]
     command: Optional[str]
-    shell: str
     split: SplitConfig
     focus: bool = False
     reuse_if_exists: bool = True
@@ -169,9 +167,8 @@ def parse_window(data: Dict[str, Any]) -> WindowConfig:
     if not isinstance(win, dict):
         die("'window' must be a mapping/object")
 
-    shell = win.get("shell")
-    if shell is not None:
-        shell = expand_path(str(shell))
+    if "shell" in win:
+        die("window.shell is not supported; configure the shell in Ghostty instead")
 
     tab_position = str(win.get("tab_position", "prepend"))
     if tab_position not in {"prepend", "append"}:
@@ -183,7 +180,6 @@ def parse_window(data: Dict[str, Any]) -> WindowConfig:
         die(f"invalid window.target: {target!r} (must be 'new' or 'front')")
 
     return WindowConfig(
-        shell=shell,
         tab_position=tab_position,
         reuse_existing_tabs=reuse_existing_tabs,
         target=target,
@@ -202,6 +198,8 @@ def parse_tabs(data: Dict[str, Any], window: WindowConfig) -> List[TabConfig]:
     for i, item in enumerate(tabs_obj, start=1):
         if not isinstance(item, dict):
             die(f"tab #{i} must be a mapping/object")
+        if "shell" in item:
+            die(f"tab #{i} uses unsupported 'shell'; configure the shell in Ghostty instead")
 
         if not bool(item.get("enabled", True)):
             continue
@@ -230,17 +228,6 @@ def parse_tabs(data: Dict[str, Any], window: WindowConfig) -> List[TabConfig]:
         if command is not None:
             command = str(command)
 
-        tab_shell = item.get("shell")
-        if tab_shell is not None:
-            shell = expand_path(str(tab_shell))
-        elif window.shell is not None:
-            shell = window.shell
-        else:
-            die(
-                f"tab {key!r} has no shell and no window.shell default is set. "
-                f"Set 'shell' on this tab or set 'window.shell' in your config."
-            )
-
         split = parse_split(item.get("split", False))
         focus = bool(item.get("focus", False))
 
@@ -258,7 +245,6 @@ def parse_tabs(data: Dict[str, Any], window: WindowConfig) -> List[TabConfig]:
                 title=title,
                 working_dir=working_dir,
                 command=command,
-                shell=shell,
                 split=split,
                 focus=focus,
                 reuse_if_exists=reuse_if_exists,
@@ -274,7 +260,6 @@ def build_payload(
     only_keys: Optional[List[str]],
     force_new_window: bool,
     tab_position: str = "prepend",
-    default_shell: str,
 ) -> Dict[str, Any]:
     selected = tabs
     tab_order = [t.key for t in tabs]
@@ -298,7 +283,6 @@ def build_payload(
                 "title": t.title or "",
                 "workingDir": t.working_dir or "",
                 "startupCommand": t.command or "",
-                "shell": t.shell,
                 "reuseIfExists": t.reuse_if_exists,
                 "split": {
                     "enabled": t.split.enabled,
@@ -314,7 +298,6 @@ def build_payload(
         "tabs": payload_tabs,
         "forceNewWindow": force_new_window,
         "focusKey": focus_key or "",
-        "defaultShell": default_shell,
         "tabPosition": tab_position,
     }
 
@@ -329,7 +312,6 @@ on run
     set tabList to tabs of payloadRecord
     set forceNewWindow to forceNewWindow of payloadRecord
     set desiredFocusKey to focusKey of payloadRecord
-    set defaultShell to defaultShell of payloadRecord
     set tabPosition to tabPosition of payloadRecord
 
     if (count of tabList) = 0 then return
@@ -343,7 +325,7 @@ on run
         if forceNewWindow or (count of windows) = 0 then
             set firstTabRec to item 1 of tabList
             set firstCfg to new surface configuration
-            set command of firstCfg to shell of firstTabRec
+            -- Leave command unset so Ghostty inherits its configured shell and normal exit behavior.
             if (workingDir of firstTabRec) is not "" then set initial working directory of firstCfg to workingDir of firstTabRec
             if (startupCommand of firstTabRec) is not "" then set initial input of firstCfg to (startupCommand of firstTabRec) & return
             set win to new window with configuration firstCfg
@@ -363,7 +345,6 @@ on run
         set tabRec to contents of tabItem
         set keyName to key of tabRec
         set titleText to title of tabRec
-        set shellPath to shell of tabRec
         set workingDir to workingDir of tabRec
         set startupCmd to startupCommand of tabRec
         set reuseFlag to reuseIfExists of tabRec
@@ -376,14 +357,14 @@ on run
                 select tab tabRef
                 delay 0.15
             end tell
-            if titleText is not "" then my setSelectedTabTitle(titleText)
+            if titleText is not "" then my setTabTitle(tabRef, titleText)
             if (enabled of splitRec) then
                 tell application "Ghostty"
-                    my ensureSplit(tabRef, shellPath, workingDir, splitRec)
+                    my ensureSplit(tabRef, workingDir, splitRec)
                 end tell
             end if
         else
-            set tabResult to my ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, splitRec)
+            set tabResult to my ensureTab(win, titleText, workingDir, startupCmd, reuseFlag, splitRec)
             set tabRef to item 1 of tabResult
             set tabAlreadyExisted to item 2 of tabResult
         end if
@@ -419,7 +400,7 @@ on run
     end if
 end run
 
-on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, splitRec)
+on ensureTab(win, titleText, workingDir, startupCmd, reuseFlag, splitRec)
     tell application "Ghostty"
         set existingTab to missing value
         if reuseFlag then set existingTab to my findTabByTitle(win, titleText)
@@ -436,7 +417,6 @@ on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, split
         -- initial input carries only the startup command — keeping them separate avoids
         -- Ghostty splitting the string on whitespace if combined into one field.
         set cfg to new surface configuration
-        set command of cfg to shellPath
         if workingDir is not "" then set initial working directory of cfg to workingDir
         if startupCmd is not "" then set initial input of cfg to startupCmd & return
 
@@ -447,19 +427,19 @@ on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, split
     end tell
 
     -- Set the tab title via the prompt dialog (skip if no title configured)
-    if titleText is not "" then my setSelectedTabTitle(titleText)
+    if titleText is not "" then my setTabTitle(t, titleText)
 
     -- Handle split after title is set; terminal focus is now stable
     if (enabled of splitRec) then
         tell application "Ghostty"
-            my ensureSplit(t, shellPath, workingDir, splitRec)
+            my ensureSplit(t, workingDir, splitRec)
         end tell
     end if
 
     return {t, false}
 end ensureTab
 
-on ensureSplit(tabRef, shellPath, workingDir, splitRec)
+on ensureSplit(tabRef, workingDir, splitRec)
     tell application "Ghostty"
         if (count of terminals of tabRef) > 1 then return
 
@@ -474,7 +454,6 @@ on ensureSplit(tabRef, shellPath, workingDir, splitRec)
         set splitCmd to secondPaneCommand of splitRec
 
         set splitCfg to new surface configuration
-        set command of splitCfg to shellPath
         if splitWD is not "" then set initial working directory of splitCfg to splitWD
         if splitCmd is not "" then set initial input of splitCfg to splitCmd & return
 
@@ -511,26 +490,54 @@ on findTabByTitle(win, desiredTitle)
     return missing value
 end findTabByTitle
 
-on setSelectedTabTitle(newTitle)
+on setTabTitle(tabRef, newTitle)
     tell application "Ghostty"
-        set termRef to focused terminal of selected tab of front window
+        select tab tabRef
+        set termRef to focused terminal of tabRef
         perform action "prompt_tab_title" on termRef
     end tell
 
-    delay 0.35
-
+    set promptSheet to missing value
     tell application "System Events"
         tell process "Ghostty"
-            tell sheet 1 of front window
-                set value of text field 1 to newTitle
+            -- The prompt is created asynchronously and window ordering can lag
+            -- behind Ghostty's scripting model. Poll all windows for up to 3s.
+            repeat 60 times
+                repeat with candidateWindow in windows
+                    try
+                        if exists sheet 1 of candidateWindow then
+                            set candidateSheet to sheet 1 of candidateWindow
+                            if (exists text field 1 of candidateSheet) and (exists button "OK" of candidateSheet) then
+                                set promptSheet to candidateSheet
+                                exit repeat
+                            end if
+                        end if
+                    end try
+                end repeat
+                if promptSheet is not missing value then exit repeat
                 delay 0.05
-                click button "OK"
-            end tell
+            end repeat
+
+            if promptSheet is missing value then error "Timed out waiting for Ghostty tab title prompt. Check Accessibility permission and close any other Ghostty dialog."
+
+            set value of text field 1 of promptSheet to newTitle
+            delay 0.05
+            click button "OK" of promptSheet
+
+            -- Do not open the next title prompt until this sheet has closed.
+            repeat 20 times
+                try
+                    if not (exists promptSheet) then exit repeat
+                on error
+                    exit repeat
+                end try
+                delay 0.05
+            end repeat
         end tell
     end tell
 
-    delay 0.15
-end setSelectedTabTitle
+    delay 0.1
+end setTabTitle
 
 on splitResizePixels(ratioText, directionName)
     set AppleScript's text item delimiters to "/"
@@ -646,7 +653,7 @@ def launch_config(
             if missing:
                 die(f"unknown tab key(s): {', '.join(sorted(missing))}")
         print(f"config: {config_path}")
-        print(f"window: {'new' if force_new else 'reuse front'}  shell={window_config.shell or '(per-tab)'}  tabs={window_config.tab_position}")
+        print(f"window: {'new' if force_new else 'reuse front'}  tabs={window_config.tab_position}")
         for t in selected:
             split_info = f"  split={t.split.direction} {t.split.ratio}" if t.split.enabled else ""
             focus_marker = " [focus]" if t.focus else ""
@@ -658,13 +665,11 @@ def launch_config(
         print("no enabled tabs to open")
         return 0
 
-    default_shell = window_config.shell or tabs[0].shell
     payload = build_payload(
         tabs,
         only_keys=only_keys,
         force_new_window=force_new,
         tab_position=window_config.tab_position,
-        default_shell=default_shell,
     )
 
     if print_script:

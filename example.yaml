@@ -13,7 +13,6 @@ name: example
 window:
   # new creates an isolated Ghostty window; front reuses the front window.
   target: new
-  shell: /bin/zsh
   tab_position: append
   reuse_existing_tabs: false
 
@@ -34,11 +33,10 @@ tabs:
     working_dir: ~/projects/example
     command: npm run dev
 
-  - key: shell
-    title: "example · Shell"
+  - key: terminal
+    title: "example · Terminal"
     working_dir: ~/projects/example
     command: ""
-    # Override the window default for this tab only.
     reuse_if_exists: true
 
   # Keep optional tabs in the file without launching them.

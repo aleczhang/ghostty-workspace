@@ -18,7 +18,6 @@ version: 2
 name: demo
 window:
   target: new
-  shell: /bin/sh
 tabs:
   - key: code
     title: Code
@@ -155,6 +154,16 @@ class TestGwsCli(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("workspace name", stderr)
 
+    def test_edit_uses_editor_and_registered_workspace_path(self):
+        self.assertEqual(self.run_cli("new", "demo")[0], 0)
+        path = WorkspaceRegistry(self.root).workspace_path("demo")
+        with patch.dict("ghostty_workspace.cli.os.environ", {"EDITOR": "editor --wait"}, clear=True), patch(
+            "ghostty_workspace.cli.subprocess.call", return_value=0
+        ) as call:
+            code, _, stderr = self.run_cli("edit", "demo")
+        self.assertEqual(code, 0, stderr)
+        call.assert_called_once_with(["editor", "--wait", str(path)])
+
     def test_config_dir_is_accepted_after_a_subcommand(self):
         self.assertEqual(self.run_cli("new", "demo")[0], 0)
         stdout = io.StringIO()
@@ -167,11 +176,36 @@ class TestGwsCli(unittest.TestCase):
 
 class TestTargetNewWindowBehavior(unittest.TestCase):
     def test_target_is_parsed_and_new_window_uses_first_configured_tab(self):
-        window = core.parse_window({"window": {"target": "new", "shell": "/bin/sh"}})
+        window = core.parse_window({"window": {"target": "new"}})
         self.assertEqual(window.target, "new")
         self.assertIn("set createdNewWindow to true", core.APPLE_SCRIPT)
         self.assertIn("set win to new window with configuration firstCfg", core.APPLE_SCRIPT)
         self.assertIn("set tabRef to tab 1 of win", core.APPLE_SCRIPT)
+
+    def test_shell_overrides_are_rejected(self):
+        with self.assertRaises(SystemExit):
+            core.parse_window({"window": {"shell": "/bin/sh"}})
+        with self.assertRaises(SystemExit):
+            core.parse_tabs(
+                {"tabs": [{"key": "code", "shell": "/bin/sh"}]},
+                core.parse_window({}),
+            )
+
+    def test_applescript_inherits_ghostty_configured_shell(self):
+        self.assertNotIn("set command of", core.APPLE_SCRIPT)
+        self.assertNotIn("defaultShell", core.APPLE_SCRIPT)
+        self.assertNotIn("shellPath", core.APPLE_SCRIPT)
+
+    def test_tab_title_prompt_waits_for_the_target_tab_sheet(self):
+        self.assertIn("my setTabTitle(tabRef, titleText)", core.APPLE_SCRIPT)
+        self.assertIn("my setTabTitle(t, titleText)", core.APPLE_SCRIPT)
+        self.assertIn("set termRef to focused terminal of tabRef", core.APPLE_SCRIPT)
+        self.assertIn("repeat 60 times", core.APPLE_SCRIPT)
+        self.assertIn("repeat with candidateWindow in windows", core.APPLE_SCRIPT)
+        self.assertIn("Timed out waiting for Ghostty tab title prompt", core.APPLE_SCRIPT)
+        self.assertIn("if not (exists promptSheet) then exit repeat", core.APPLE_SCRIPT)
+        self.assertNotIn("sheet 1 of front window", core.APPLE_SCRIPT)
+        self.assertNotIn("setSelectedTabTitle", core.APPLE_SCRIPT)
 
     def test_explicit_front_target_is_respected(self):
         with tempfile.TemporaryDirectory() as directory:
