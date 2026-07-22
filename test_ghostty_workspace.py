@@ -30,9 +30,9 @@ from unittest.mock import patch
 # ---------------------------------------------------------------------------
 SCRIPT = Path(__file__).parent / "ghostty-workspace.py"
 
-spec = importlib.util.spec_from_file_location("ghostty_workspace", SCRIPT)
+spec = importlib.util.spec_from_file_location("ghostty_workspace_legacy_script", SCRIPT)
 gw = importlib.util.module_from_spec(spec)
-sys.modules["ghostty_workspace"] = gw
+sys.modules["ghostty_workspace_legacy_script"] = gw
 spec.loader.exec_module(gw)
 
 

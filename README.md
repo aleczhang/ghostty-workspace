@@ -17,12 +17,58 @@ Ghostty added AppleScript support in v1.3 (March 2026), but has no built-in way 
 ```bash
 git clone https://github.com/manonstreet/ghostty-workspace.git
 cd ghostty-workspace
-pip install pyyaml
+python3 -m pip install .
 ```
 
-Copy `example.yaml` to `~/ghostty-workspace.yaml` (or into a project directory) and edit it for your setup. The script checks the current directory first, then `~/`.
+The installed `gws` command manages named workspace configurations under `$XDG_CONFIG_HOME/ghostty-workspace/workspaces` (default: `~/.config/ghostty-workspace/workspaces`). The original `ghostty-workspace.py` script remains available for existing YAML files and automation.
 
-## Usage
+## `gws` named workspaces
+
+Create and manage reusable, named configurations:
+
+```bash
+# Create ~/.config/ghostty-workspace/workspaces/payments.yaml
+# (or $XDG_CONFIG_HOME/ghostty-workspace/workspaces/payments.yaml)
+gws new payments
+
+# Edit, inspect, validate, and launch it
+gws edit payments
+gws show payments
+gws validate payments
+gws start payments
+
+# Launch selected tabs or override the configured window target
+gws start payments --tabs code,server
+gws start payments --reuse-front
+gws start payments --new-window
+
+# List and manage named configurations
+gws list
+gws delete payments             # asks, then moves the YAML to gws trash
+gws restore payments            # restores the latest deleted revision
+gws trash list
+gws trash purge payments --yes  # permanently removes trashed revisions
+
+gws doctor                      # checks macOS, osascript, and Ghostty discovery
+```
+
+`gws delete` only moves the registered YAML configuration to its private trash directory. It never closes Ghostty windows or kills terminal processes. Workspace names are constrained to safe filename characters, and `gws` does not accept arbitrary file paths for deletion.
+
+Named workspaces support an explicit `window.target` setting:
+
+```yaml
+version: 2
+name: payments
+window:
+  target: new                   # new | front; named workspaces should normally use new
+  shell: /bin/zsh
+```
+
+A new-window launch configures Ghostty's initial terminal from the first selected YAML tab, so it does not intentionally add a spare bootstrap tab. `front` uses the currently frontmost Ghostty window. The legacy `window.always_new` option remains supported for existing files.
+
+## Legacy script usage
+
+The original script remains available and keeps its current-directory-then-home configuration lookup:
 
 ```bash
 # Launch workspace (checks ./ghostty-workspace.yaml then ~/ghostty-workspace.yaml)
@@ -52,10 +98,11 @@ See [`example.yaml`](example.yaml) for a fully commented reference. Summary:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `target` | `new` \| `front` | legacy behavior | Explicit launch target. `new` creates an isolated window; `front` reuses the front window. |
 | `shell` | string | *(none)* | **Required** at window or tab level. Absolute path to shell. |
 | `tab_position` | `prepend` \| `append` | `prepend` | Where workspace tabs are inserted in the tab bar. |
 | `reuse_existing_tabs` | bool | `true` | Global default for reusing tabs that match by title. |
-| `always_new` | bool | `false` | Always create a new window (same as `--force-new-window`). |
+| `always_new` | bool | `false` | Legacy alias for opening a new window (same as `--force-new-window`). |
 
 ### `tabs[]`
 
@@ -85,9 +132,10 @@ See [`example.yaml`](example.yaml) for a fully commented reference. Summary:
 
 ```bash
 python3 test_ghostty_workspace.py
+python3 test_gws_cli.py
 ```
 
-81 tests covering config parsing, payload generation, AppleScript invariants, and CLI behavior. No macOS, Ghostty, or osascript required to run them.
+98 tests cover config parsing, payload generation, AppleScript invariants, legacy CLI compatibility, named workspace management, safe deletion/recovery, and the packaged `gws` CLI. No macOS, Ghostty, or osascript is required to run them.
 
 ## Known Caveats
 
