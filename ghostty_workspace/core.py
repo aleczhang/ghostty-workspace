@@ -306,7 +306,7 @@ def build_payload(
                 "key": t.key,
                 "title": t.title or "",
                 "workingDir": t.working_dir or "",
-                "command": t.command or "",
+                "startupCommand": t.command or "",
                 "shell": t.shell,
                 "reuseIfExists": t.reuse_if_exists,
                 "split": {
@@ -354,7 +354,7 @@ on run
             set firstCfg to new surface configuration
             set command of firstCfg to shell of firstTabRec
             if (workingDir of firstTabRec) is not "" then set initial working directory of firstCfg to workingDir of firstTabRec
-            if (command of firstTabRec) is not "" then set initial input of firstCfg to (command of firstTabRec) & return
+            if (startupCommand of firstTabRec) is not "" then set initial input of firstCfg to (startupCommand of firstTabRec) & return
             set win to new window with configuration firstCfg
             set createdNewWindow to true
             delay 0.5
@@ -374,7 +374,7 @@ on run
         set titleText to title of tabRec
         set shellPath to shell of tabRec
         set workingDir to workingDir of tabRec
-        set startupCmd to command of tabRec
+        set startupCmd to startupCommand of tabRec
         set reuseFlag to reuseIfExists of tabRec
         set splitRec to split of tabRec
 

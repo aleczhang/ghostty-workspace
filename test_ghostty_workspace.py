@@ -644,6 +644,14 @@ class TestBuildPayload(unittest.TestCase):
         payload = self._payload()
         self.assertEqual(len(payload["tabs"]), 2)
 
+    def test_startup_command_uses_a_non_conflicting_record_key(self):
+        payload = self._payload()
+        self.assertEqual(payload["tabs"][0]["startupCommand"], "claude -c")
+        self.assertNotIn("command", payload["tabs"][0])
+        literal = gw.to_applescript(payload)
+        self.assertIn('startupCommand:"claude -c"', literal)
+        self.assertNotIn('command:"claude -c"', literal)
+
     def test_only_keys_filters(self):
         payload = self._payload(only_keys=["finance"])
         self.assertEqual(len(payload["tabs"]), 1)
@@ -743,6 +751,13 @@ class TestAppleScriptInjection(unittest.TestCase):
     def test_startup_cmd_uses_initial_input(self):
         script = gw.APPLE_SCRIPT
         self.assertIn("initial input", script)
+
+    def test_first_tab_reads_non_conflicting_startup_command_key(self):
+        script = gw.APPLE_SCRIPT
+        self.assertIn("startupCommand of firstTabRec", script)
+        self.assertIn("startupCommand of tabRec", script)
+        self.assertNotIn("command of firstTabRec", script)
+        self.assertNotIn("command of tabRec", script)
 
     def test_no_hardcoded_shell_path(self):
         # The AppleScript must use defaultShell from the payload, not a hardcoded path
