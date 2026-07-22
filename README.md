@@ -15,7 +15,7 @@ Ghostty added AppleScript support in v1.3 (March 2026), but has no built-in way 
 ## Installation
 
 ```bash
-git clone https://github.com/manonstreet/ghostty-workspace.git
+git clone https://github.com/aleczhang/ghostty-workspace.git
 cd ghostty-workspace
 python3 -m pip install .
 ```
