@@ -18,12 +18,11 @@ Requirements:
 - PyYAML (`python3 -m pip install pyyaml`)
 - Accessibility enabled for "System Events"
 
-Example:
-    ghostty-workspace --config ~/ghostty-workspace.yaml
+Use the packaged `gws` command to create, validate, and launch named
+workspaces stored below the user configuration directory.
 """
 from __future__ import annotations
 
-import argparse
 import math
 import os
 import shlex
@@ -56,10 +55,7 @@ class WindowConfig:
     shell: Optional[str] = None
     tab_position: str = "prepend"
     reuse_existing_tabs: bool = True
-    always_new: bool = False
-    # `target` is the clearer v2 replacement for legacy `always_new`.
-    # None preserves legacy behavior; "new" and "front" are explicit modes.
-    target: Optional[str] = None
+    target: str = "new"
 
 
 @dataclass
@@ -182,19 +178,14 @@ def parse_window(data: Dict[str, Any]) -> WindowConfig:
         die(f"invalid tab_position: {tab_position!r} (must be 'prepend' or 'append')")
 
     reuse_existing_tabs = bool(win.get("reuse_existing_tabs", True))
-    always_new = bool(win.get("always_new", False))
-    target_raw = win.get("target")
-    target: Optional[str] = None
-    if target_raw is not None:
-        target = str(target_raw)
-        if target not in {"new", "front"}:
-            die(f"invalid window.target: {target!r} (must be 'new' or 'front')")
+    target = str(win.get("target", "new"))
+    if target not in {"new", "front"}:
+        die(f"invalid window.target: {target!r} (must be 'new' or 'front')")
 
     return WindowConfig(
         shell=shell,
         tab_position=tab_position,
         reuse_existing_tabs=reuse_existing_tabs,
-        always_new=always_new,
         target=target,
     )
 
@@ -628,54 +619,6 @@ def run_osascript(payload: Dict[str, Any], *, verbose: bool) -> int:
     return proc.returncode
 
 
-CONFIG_NAME = "ghostty-workspace.yaml"
-
-
-def resolve_config() -> Path:
-    """Find config: ./ghostty-workspace.yaml first, then ~/ghostty-workspace.yaml."""
-    cwd = Path.cwd() / CONFIG_NAME
-    if cwd.is_file():
-        return cwd
-    home = Path.home() / CONFIG_NAME
-    if home.is_file():
-        return home
-    # Default to CWD path so the error message is useful.
-    return cwd
-
-
-def build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Open and maintain a Ghostty workspace from YAML.")
-    p.add_argument(
-        "-c", "--config",
-        default=None,
-        help=f"Path to YAML config. Default: ./{CONFIG_NAME} then ~/{CONFIG_NAME}",
-    )
-    p.add_argument(
-        "--tabs",
-        help="Comma-separated list of tab keys to open, in configured order.",
-    )
-    p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate config and print planned actions without touching Ghostty.",
-    )
-    p.add_argument(
-        "--force-new-window",
-        action="store_true",
-        help="Always create a new Ghostty window instead of reusing the front window.",
-    )
-    p.add_argument(
-        "--print-script",
-        action="store_true",
-        help="Print the generated AppleScript and exit (useful for debugging).",
-    )
-    p.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Print the osascript command before execution.",
-    )
-    return p
-
 
 def launch_config(
     config_path: Path,
@@ -686,17 +629,12 @@ def launch_config(
     print_script: bool = False,
     verbose: bool = False,
 ) -> int:
-    """Validate and launch one config; shared by the legacy and gws CLIs."""
+    """Validate and launch one named-workspace configuration."""
     data = load_yaml(config_path)
     window_config = parse_window(data)
     tabs = parse_tabs(data, window_config)
 
-    # target is the explicit v2 setting and deliberately overrides the
-    # legacy boolean when both happen to be present during a migration.
-    if window_config.target is not None:
-        configured_new = window_config.target == "new"
-    else:
-        configured_new = window_config.always_new
+    configured_new = window_config.target == "new"
     force_new = configured_new if force_new_window is None else force_new_window
 
     if dry_run:
@@ -735,33 +673,3 @@ def launch_config(
         return 0
 
     return run_osascript(payload, verbose=verbose)
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    parser = build_arg_parser()
-    args = parser.parse_args(argv)
-
-    if args.config is not None:
-        config_path = Path(expand_path(args.config))
-    else:
-        config_path = resolve_config()
-
-    only_keys = None
-    if args.tabs:
-        only_keys = [part.strip() for part in args.tabs.split(",") if part.strip()]
-        if not only_keys:
-            die("--tabs was provided but no valid keys were found")
-
-    return launch_config(
-        config_path,
-        only_keys=only_keys,
-        # None lets the legacy YAML's always_new behavior apply unchanged.
-        force_new_window=True if args.force_new_window else None,
-        dry_run=args.dry_run,
-        print_script=args.print_script,
-        verbose=args.verbose,
-    )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

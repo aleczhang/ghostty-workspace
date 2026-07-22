@@ -53,18 +53,7 @@ def _registry(args: argparse.Namespace) -> WorkspaceRegistry:
 
 
 def _resolve_config(args: argparse.Namespace, registry: WorkspaceRegistry) -> Path:
-    config = getattr(args, "config", None)
-    name = getattr(args, "name", None)
-    if config and name:
-        raise WorkspaceError("use either a workspace name or --config, not both")
-    if config:
-        return Path(core.expand_path(config))
-    if name == ".":
-        return Path.cwd() / core.CONFIG_NAME
-    if name:
-        return registry.workspace_path(name)
-    # Keep the old current-directory then home lookup for bare `gws start`.
-    return core.resolve_config()
+    return registry.workspace_path(args.name)
 
 
 def _confirm(prompt: str, assume_yes: bool) -> bool:
@@ -77,9 +66,8 @@ def _confirm(prompt: str, assume_yes: bool) -> bool:
     return answer.strip().lower() in {"y", "yes"}
 
 
-def _add_config_selector(parser: argparse.ArgumentParser, *, require_name: bool = False) -> None:
-    parser.add_argument("name", nargs=None if require_name else "?", help="Registered workspace name, or '.' for the current directory config.")
-    parser.add_argument("-c", "--config", help="Path to a YAML config; cannot be combined with NAME.")
+def _add_config_selector(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("name", help="Registered workspace name.")
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

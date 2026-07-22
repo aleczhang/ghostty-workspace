@@ -155,13 +155,6 @@ class TestGwsCli(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("workspace name", stderr)
 
-    def test_start_accepts_an_explicit_config_file(self):
-        config = Path(self.tempdir.name) / "custom.yaml"
-        config.write_text(VALID_CONFIG, encoding="utf-8")
-        code, stdout, stderr = self.run_cli("start", "--config", str(config), "--dry-run", "--reuse-front")
-        self.assertEqual(code, 0, stderr)
-        self.assertIn("window: reuse front", stdout)
-
     def test_config_dir_is_accepted_after_a_subcommand(self):
         self.assertEqual(self.run_cli("new", "demo")[0], 0)
         stdout = io.StringIO()
@@ -180,13 +173,10 @@ class TestTargetNewWindowBehavior(unittest.TestCase):
         self.assertIn("set win to new window with configuration firstCfg", core.APPLE_SCRIPT)
         self.assertIn("set tabRef to tab 1 of win", core.APPLE_SCRIPT)
 
-    def test_explicit_front_target_overrides_legacy_always_new(self):
+    def test_explicit_front_target_is_respected(self):
         with tempfile.TemporaryDirectory() as directory:
-            config = Path(directory) / "migration.yaml"
-            config.write_text(
-                VALID_CONFIG.replace("target: new", "target: front\n  always_new: true"),
-                encoding="utf-8",
-            )
+            config = Path(directory) / "front.yaml"
+            config.write_text(VALID_CONFIG.replace("target: new", "target: front"), encoding="utf-8")
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
                 self.assertEqual(core.launch_config(config, dry_run=True), 0)

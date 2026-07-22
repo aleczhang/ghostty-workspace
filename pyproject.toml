@@ -14,7 +14,6 @@ dependencies = ["PyYAML==6.0.3"]
 
 [project.scripts]
 gws = "ghostty_workspace.cli:main"
-ghostty-workspace = "ghostty_workspace.legacy:main"
 
 [tool.setuptools]
 packages = ["ghostty_workspace"]
