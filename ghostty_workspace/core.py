@@ -378,6 +378,7 @@ on run
         set reuseFlag to reuseIfExists of tabRec
         set splitRec to split of tabRec
 
+        set tabAlreadyExisted to false
         if createdNewWindow and insertIndex is 1 then
             tell application "Ghostty"
                 set tabRef to tab 1 of win
@@ -391,23 +392,29 @@ on run
                 end tell
             end if
         else
-            set tabRef to my ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, splitRec)
+            set tabResult to my ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, splitRec)
+            set tabRef to item 1 of tabResult
+            set tabAlreadyExisted to item 2 of tabResult
         end if
 
+        -- A reused tab is focus-only: do not move it to satisfy configured
+        -- ordering, because that would mutate the user's existing layout.
         if tabPosition is "prepend" then
-            -- Slide the tab left until it sits at insertIndex.
-            -- Uses the Ghostty action "move_tab:-1" which moves the focused tab one step left.
-            tell application "Ghostty"
-                select tab tabRef
-                delay 0.1
-                set currentIndex to index of tabRef
-                set primaryTerm to focused terminal of tabRef
-                repeat while currentIndex > insertIndex
-                    perform action "move_tab:-1" on primaryTerm
-                    delay 0.05
-                    set currentIndex to currentIndex - 1
-                end repeat
-            end tell
+            if tabAlreadyExisted is false then
+                -- Slide a newly created tab left until it sits at insertIndex.
+                -- Uses the Ghostty action "move_tab:-1" which moves the focused tab one step left.
+                tell application "Ghostty"
+                    select tab tabRef
+                    delay 0.1
+                    set currentIndex to index of tabRef
+                    set primaryTerm to focused terminal of tabRef
+                    repeat while currentIndex > insertIndex
+                        perform action "move_tab:-1" on primaryTerm
+                        delay 0.05
+                        set currentIndex to currentIndex - 1
+                    end repeat
+                end tell
+            end if
         end if
 
         if keyName is desiredFocusKey then set focusedTabRef to tabRef
@@ -427,22 +434,11 @@ on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, split
         if reuseFlag then set existingTab to my findTabByTitle(win, titleText)
 
         if existingTab is not missing value then
-            -- Tab already exists: select it and re-send commands to the focused terminal
+            -- Reuse is deliberately focus-only. Never re-run a command,
+            -- change directories, add a split, rename, or rearrange this tab.
             select tab existingTab
             delay 0.15
-            set termRef to focused terminal of existingTab
-            if workingDir is not "" then
-                input text ("cd " & workingDir) to termRef
-                send key "enter" to termRef
-                delay 0.1
-            end if
-            if startupCmd is not "" then
-                input text startupCmd to termRef
-                send key "enter" to termRef
-                delay 0.1
-            end if
-            if (enabled of splitRec) then my ensureSplit(existingTab, shellPath, workingDir, splitRec)
-            return existingTab
+            return {existingTab, true}
         end if
 
         -- initial working directory is set via surface config (verified: Fish respects it).
@@ -469,7 +465,7 @@ on ensureTab(win, titleText, shellPath, workingDir, startupCmd, reuseFlag, split
         end tell
     end if
 
-    return t
+    return {t, false}
 end ensureTab
 
 on ensureSplit(tabRef, shellPath, workingDir, splitRec)

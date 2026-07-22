@@ -759,6 +759,26 @@ class TestAppleScriptInjection(unittest.TestCase):
         self.assertNotIn("command of firstTabRec", script)
         self.assertNotIn("command of tabRec", script)
 
+    def test_existing_tab_reuse_is_focus_only(self):
+        script = gw.APPLE_SCRIPT
+        start = script.index("if existingTab is not missing value then")
+        end = script.index("-- initial working directory", start)
+        reuse_branch = script[start:end]
+        self.assertIn("select tab existingTab", reuse_branch)
+        self.assertIn("return {existingTab, true}", reuse_branch)
+        self.assertNotIn("input text", reuse_branch)
+        self.assertNotIn("send key", reuse_branch)
+        self.assertNotIn("ensureSplit", reuse_branch)
+        self.assertNotIn("set termRef", reuse_branch)
+
+    def test_existing_tab_reuse_skips_tab_reordering(self):
+        script = gw.APPLE_SCRIPT
+        self.assertIn("if tabAlreadyExisted is false then", script)
+        self.assertLess(
+            script.index("if tabAlreadyExisted is false then"),
+            script.index('perform action "move_tab:-1"'),
+        )
+
     def test_no_hardcoded_shell_path(self):
         # The AppleScript must use defaultShell from the payload, not a hardcoded path
         script = gw.APPLE_SCRIPT

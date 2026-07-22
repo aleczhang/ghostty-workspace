@@ -24,8 +24,9 @@ window:
 
   # reuse_existing_tabs (default: true)
   # When true, if a tab with the same title already exists in the window,
-  # the launcher reuses it instead of creating a duplicate. Individual
-  # tabs can override this with 'reuse_if_exists'.
+  # the launcher focuses it instead of creating a duplicate. It does not
+  # re-run commands, change its directory, add splits, or reorder the tab.
+  # Individual tabs can override this with 'reuse_if_exists'.
   reuse_existing_tabs: true
 
   # always_new (default: false)

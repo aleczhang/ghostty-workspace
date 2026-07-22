@@ -114,7 +114,7 @@ See [`example.yaml`](example.yaml) for a fully commented reference. Summary:
 | `command` | string | | Command to run on tab creation. |
 | `shell` | string | `window.shell` | Per-tab shell override. |
 | `focus` | bool | `false` | Give this tab focus after launch. |
-| `reuse_if_exists` | bool | `window.reuse_existing_tabs` | Override the global reuse setting. |
+| `reuse_if_exists` | bool | `window.reuse_existing_tabs` | Override the global reuse setting. A reused tab is focus-only: it does not rerun commands, alter splits, or move in the tab bar. |
 | `enabled` | bool | `true` | Set to `false` to skip without removing from config. |
 | `split` | object | | Split pane configuration (see below). |
 
@@ -135,7 +135,7 @@ python3 test_ghostty_workspace.py
 python3 test_gws_cli.py
 ```
 
-98 tests cover config parsing, payload generation, AppleScript invariants, legacy CLI compatibility, named workspace management, safe deletion/recovery, and the packaged `gws` CLI. No macOS, Ghostty, or osascript is required to run them.
+102 tests cover config parsing, payload generation, AppleScript invariants, legacy CLI compatibility, named workspace management, safe deletion/recovery, and the packaged `gws` CLI. No macOS, Ghostty, or osascript is required to run them.
 
 ## Known Caveats
 
